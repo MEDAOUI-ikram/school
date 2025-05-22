@@ -2,13 +2,56 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 
 class AuthController extends Controller
 {
+    /**
+     * Affiche le formulaire d'inscription.
+     *
+     * @return \Illuminate\View\View
+     */
+    public function showRegistrationForm()
+    {
+        return view('auth.register');
+    }
+
+    /**
+     * Traite la requête d'inscription.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\RedirectResponse
+     */
+    public function register(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'nom' => 'required|string|max:255',
+            'courriel' => 'required|string|email|max:255|unique:users,email',
+            'mot_de_passe' => 'required|string|min:8|confirmed',
+            'role' => 'required|in:admin,enseignant,etudiant',
+        ]);
+
+        if ($validator->fails()) {
+            return back()->withErrors($validator)->withInput();
+        }
+
+        $user = User::create([
+            'name' => $request->nom, // This should likely be 'name'
+            'email' => $request->courriel, // This should likely be 'email'
+            'password' => Hash::make($request->mot_de_passe),
+            'role' => $request->role,
+            // ... other fields
+        ]);
+
+        Auth::login($user);
+
+        return redirect('/')->with('success', 'Inscription réussie !');
+    }
+
     /**
      * Affiche le formulaire de connexion.
      *
@@ -16,55 +59,35 @@ class AuthController extends Controller
      */
     public function showLoginForm()
     {
-        return view('auth.login'); // Assurez-vous que 'auth.login' est le bon chemin vers votre vue
+        return view('auth.login');
     }
 
     /**
-     * Traite la tentative de connexion.
+     * Traite la requête de connexion.
      *
      * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\RedirectResponse
      */
     public function login(Request $request)
-{
-    try {
+    {
         $credentials = $request->validate([
             'email' => ['required', 'email'],
-            //'password' => ['required'],
+            'password' => ['required'],
         ]);
 
-        Log::info('Tentative de connexion pour email: ' . $credentials['email']);
-        Log::info('Données validées: ' . json_encode($credentials));
-
-        $login_data = [
-            'email' => $credentials['email'],
-            'password' => $credentials['password']
-        ];
-
-        Log::info('Données pour Auth::attempt(): ' . json_encode($login_data));
-
-        if (Auth::attempt($login_data)) {
+        if (Auth::attempt($credentials)) {
             $request->session()->regenerate();
-            Log::info('Connexion RÉUSSIE pour: ' . $request->email);
-            return redirect()->intended('/dashboard');
-        } else {
-            Log::warning('Connexion ÉCHOUÉE pour: ' . $request->email);
+
+            return redirect()->intended('/');
         }
 
         return back()->withErrors([
-            'email' => 'Identifiants invalides',
+            'email' => 'Adresse e-mail ou mot de passe incorrect.',
         ])->onlyInput('email');
-
-    } catch (\Exception $e) {
-        Log::error('Erreur lors de la connexion: ' . $e->getMessage());
-        return back()->withErrors([
-            'email' => 'Erreur lors de la connexion',
-        ]);
     }
-}
 
     /**
-     * Déconnecte l'utilisateur.
+     * Traite la requête de déconnexion.
      *
      * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\RedirectResponse
@@ -74,6 +97,36 @@ class AuthController extends Controller
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
-        return redirect('/'); // Redirigez vers la page d'accueil
+        return redirect('/');
+    }
+
+    /**
+     * Affiche le tableau de bord de l'administrateur.
+     *
+     * @return \Illuminate\View\View
+     */
+    public function adminDashboard()
+    {
+        return view('admin.dashboard');
+    }
+
+    /**
+     * Affiche le tableau de bord de l'enseignant.
+     *
+     * @return \Illuminate\View\View
+     */
+    public function enseignantDashboard()
+    {
+        return view('enseignant.dashboard');
+    }
+
+    /**
+     * Affiche le tableau de bord de l'étudiant.
+     *
+     * @return \Illuminate\View\View
+     */
+    public function etudiantDashboard()
+    {
+        return view('etudiant.dashboard');
     }
 }
