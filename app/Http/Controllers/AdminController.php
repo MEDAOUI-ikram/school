@@ -2,60 +2,57 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Classe;
-use App\Models\Niveau;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Redirect;
+use App\Models\User;
+use App\Models\Role;
 
 class AdminController extends Controller
 {
-    public function indexClasses()
+    public function __construct()
     {
-        $classes = Classe::with('niveau')->get(); // Eager load the 'niveau' relationship
-        return view('admin.classes.index', compact('classes'));
+        $this->middleware(['auth', 'role:admin']);
     }
 
-    public function createClasse()
+    public function dashboard()
     {
-        $niveaux = Niveau::all();
-        return view('admin.classes.create', compact('niveaux'));
+        $stats = [
+            'total_users' => User::count(),
+            'total_etudiants' => User::whereHas('role', function($q) {
+                $q->where('name', 'etudiant');
+            })->count(),
+            'total_enseignants' => User::whereHas('role', function($q) {
+                $q->where('name', 'enseignant');
+            })->count(),
+        ];
+
+        return view('admin.dashboard', compact('stats'));
     }
 
-    public function storeClasse(Request $request)
+    public function users()
     {
-        $request->validate([
-            'nom_classe' => 'required',
-            'annee' => 'required',
-            'niveau_id' => 'required|exists:niveaus,id', // Validate niveau_id
+        $users = User::with('role')->paginate(10);
+        return view('admin.users', compact('users'));
+    }
+
+    public function createUser()
+    {
+        $roles = Role::all();
+        return view('admin.create-user', compact('roles'));
+    }
+
+    public function storeUser(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:users',
+            'password' => 'required|string|min:8|confirmed',
+            'role_id' => 'required|exists:roles,id',
         ]);
 
-        Classe::create($request->all());
+        $validated['password'] = bcrypt($validated['password']);
 
-        return redirect()->route('admin.classes.index')->with('success', 'Classe créée avec succès.');
-    }
+        User::create($validated);
 
-    public function editClasse(Classe $classe)
-    {
-        $niveaux = Niveau::all();
-        return view('admin.classes.edit', compact('classe', 'niveaux'));
-    }
-
-    public function updateClasse(Request $request, Classe $classe)
-    {
-        $request->validate([
-            'nom_classe' => 'required',
-            'annee' => 'required',
-            'niveau_id' => 'required|exists:niveaus,id', // Validate niveau_id
-        ]);
-
-        $classe->update($request->all());
-
-        return redirect()->route('admin.classes.index')->with('success', 'Classe mise à jour avec succès.');
-    }
-
-    public function destroyClasse(Classe $classe)
-    {
-        $classe->delete();
-        return redirect()->route('admin.classes.index')->with('success', 'Classe supprimée avec succès.');
+        return redirect()->route('admin.users')->with('success', 'Utilisateur créé avec succès!');
     }
 }

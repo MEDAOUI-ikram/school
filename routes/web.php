@@ -1,10 +1,9 @@
 <?php
 
+use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AdminController;
-use App\Http\Controllers\AuthController;
 use App\Http\Controllers\EnseignantController;
 use App\Http\Controllers\EtudiantController;
-use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
@@ -17,52 +16,59 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-// Authentication Routes (Accessible to all, or at least to unauthenticated users)
-Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login'); // Show login form
-Route::post('/login', [AuthController::class, 'login'])->name('login.post');   // Handle login submission
-Route::post('/logout', [AuthController::class, 'logout'])->name('logout');     // Handle logout
-
-// Admin Routes (Accessible to authenticated users with the "admin" role)
-Route::middleware(['auth', 'role:admin'])->group(function () {
-    Route::get('/admin/dashboard', [AdminController::class, 'dashboard'])->name('admin.dashboard');
-    Route::get('/admin/users', [AdminController::class, 'indexUsers'])->name('admin.users');
-    Route::get('/admin/classes', [AdminController::class, 'indexClasses'])->name('admin.classes');
-    Route::get('/admin/classes/create', [AdminController::class, 'createClasse'])->name('admin.classes.create');
-    Route::post('/admin/classes', [AdminController::class, 'storeClasse'])->name('admin.classes.store');
-    Route::get('/admin/classes/{classe}/edit', [AdminController::class, 'editClasse'])->name('admin.classes.edit');
-    Route::put('/admin/classes/{classe}', [AdminController::class, 'updateClasse'])->name('admin.classes.update');
-    Route::delete('/admin/classes/{classe}', [AdminController::class, 'destroyClasse'])->name('admin.classes.destroy');
-    Route::get('/admin/matieres', [AdminController::class, 'indexMatieres'])->name('admin.matieres.index');
-    Route::get('/admin/matieres/create', [AdminController::class, 'createMatiere'])->name('admin.matieres.create');
-    Route::post('/admin/matieres', [AdminController::class, 'storeMatiere'])->name('admin.matieres.store');
-    Route::get('/admin/matieres/{matiere}/edit', [AdminController::class, 'editMatiere'])->name('admin.matieres.edit');
-    Route::put('/admin/matieres/{matiere}', [AdminController::class, 'updateMatiere'])->name('admin.matieres.update');
-    Route::delete('/admin/matieres/{matiere}', [AdminController::class, 'destroyMatiere'])->name('admin.matieres.destroy');
-    Route::get('/admin/niveaus', [AdminController::class, 'indexNiveaus'])->name('admin.niveaus.index');
-    Route::get('/admin/niveaus/create', [AdminController::class, 'createNiveau'])->name('admin.niveaus.create');
-    Route::post('/admin/niveaus', [AdminController::class, 'storeNiveau'])->name('admin.niveaus.store');
-    Route::get('/admin/niveaus/{niveau}/edit', [AdminController::class, 'editNiveau'])->name('admin.niveaus.edit');
-    Route::put('/admin/niveaus/{niveau}', [AdminController::class, 'updateNiveau'])->name('admin.niveaus.update');
-    Route::delete('/admin/niveaus/{niveau}', [AdminController::class, 'destroyNiveau'])->name('admin.niveaus.destroy');
-    // ... other admin routes (users, reports, etc.)
+Route::get('/', function () {
+    return view('welcome');
 });
 
-// Enseignant Routes (Accessible to authenticated users with the "enseignant" role)
-Route::middleware(['auth', 'role:enseignant'])->group(function () {
-    Route::get('/enseignant/classes', [EnseignantController::class, 'indexClasses'])->name('enseignant.classes');
-    Route::get('/enseignant/matieres', [EnseignantController::class, 'indexMatieres'])->name('enseignant.matieres');
-    // ... other enseignant routes (view emploi du temps, etc.)
+// Routes d'authentification
+Auth::routes();
+
+Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
+
+// Routes pour Admin
+Route::group(['middleware' => ['auth', 'role:admin'], 'prefix' => 'admin', 'as' => 'admin.'], function() {
+    Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
+    Route::get('/users', [AdminController::class, 'users'])->name('users');
+    Route::get('/users/create', [AdminController::class, 'createUser'])->name('users.create');
+    Route::post('/users', [AdminController::class, 'storeUser'])->name('users.store');
 });
 
-// Etudiant Routes (Accessible to authenticated users with the "etudiant" role)
-Route::middleware(['auth', 'role:etudiant'])->group(function () {
-    Route::get('/etudiant/info', [EtudiantController::class, 'showInfo'])->name('etudiant.info');
-    Route::get('/etudiant/classes', [EtudiantController::class, 'indexClasses'])->name('etudiant.classes');
-    Route::get('/etudiant/matieres', [EtudiantController::class, 'indexMatieres'])->name('etudiant.matieres');
-    // ... other etudiant routes (view emploi du temps, etc.)
+// Routes pour Enseignant
+Route::group(['middleware' => ['auth', 'role:enseignant'], 'prefix' => 'enseignant', 'as' => 'enseignant.'], function() {
+    Route::get('/dashboard', [EnseignantController::class, 'dashboard'])->name('dashboard');
+    Route::get('/profile', [EnseignantController::class, 'profile'])->name('profile');
+    Route::put('/profile', [EnseignantController::class, 'updateProfile'])->name('profile.update');
+    Route::get('/cours', [EnseignantController::class, 'cours'])->name('cours');
+    Route::get('/etudiants', [EnseignantController::class, 'etudiants'])->name('etudiants');
 });
 
-// Common Routes (Accessible to multiple roles, if needed - but be careful with this)
-// Route::middleware(['auth', 'role:enseignant,etudiant'])->group(function () {
-//     Route::get('/common/emploi-du-temps', [CommonController::class, 'emploiDuTemps'])->name('common.emploi-du-temps');
-// });
+// Routes pour Etudiant
+Route::group(['middleware' => ['auth', 'role:etudiant'], 'prefix' => 'etudiant', 'as' => 'etudiant.'], function() {
+    Route::get('/dashboard', [EtudiantController::class, 'dashboard'])->name('dashboard');
+    Route::get('/profile', [EtudiantController::class, 'profile'])->name('profile');
+    Route::put('/profile', [EtudiantController::class, 'updateProfile'])->name('profile.update');
+    Route::get('/cours', [EtudiantController::class, 'cours'])->name('cours');
+    Route::get('/notes', [EtudiantController::class, 'notes'])->name('notes');
+    Route::get('/devoirs', [EtudiantController::class, 'devoirs'])->name('devoirs');
+});
+
+// Route de redirection après connexion (fallback)
+Route::get('/redirect', function() {
+    $user = auth()->user();
+
+    if (!$user->role) {
+        auth()->logout();
+        return redirect('/login')->withErrors(['email' => 'Aucun rôle assigné.']);
+    }
+
+    switch($user->role->name) {
+        case 'admin':
+            return redirect()->route('admin.dashboard');
+        case 'enseignant':
+            return redirect()->route('enseignant.dashboard');
+        case 'etudiant':
+            return redirect()->route('etudiant.dashboard');
+        default:
+            return redirect('/home');
+    }
+})->middleware('auth')->name('redirect');
